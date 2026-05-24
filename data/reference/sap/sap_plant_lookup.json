@@ -1,0 +1,16 @@
+{
+  "1010": {
+    "name": "Hamburg Manufacturing Plant",
+    "country": "DE",
+    "city": "Hamburg",
+    "region": "Europe",
+    "scope": 1
+  },
+  "P104": {
+    "name": "Chicago Distribution Facility",
+    "country": "US",
+    "city": "Chicago",
+    "region": "North America",
+    "scope": 1
+  }
+}

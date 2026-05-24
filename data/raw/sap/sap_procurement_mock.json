@@ -1,0 +1,41 @@
+{
+  "@odata.context": "https://sandbox.api.sap.com/sap/opu/odata4/sap/api_purchaseorder_2/srvd_a2x/sap/purchaseorder/0001/$metadata#PurchaseOrderItem",
+  "value": [
+    {
+      "PurchaseOrder": "4500001234",
+      "PurchaseOrderItem": "00010",
+      "Plant": "1010",
+      "Material": "10000145",
+      "OrderQuantity": 500.00,
+      "PurchaseOrderQuantityUnit": "L",
+      "NetPriceAmount": 0.85,
+      "DocumentCurrency": "EUR",
+      "NetPriceQuantity": 1.0,
+      "CreationDate": "20260520"
+    },
+    {
+      "PurchaseOrder": "4500001234",
+      "PurchaseOrderItem": "00020",
+      "Plant": "P104",
+      "Material": "10000203",
+      "OrderQuantity": 150.50,
+      "PurchaseOrderQuantityUnit": "GAL",
+      "NetPriceAmount": 3.45,
+      "DocumentCurrency": "USD",
+      "NetPriceQuantity": 1.0,
+      "CreationDate": "20260521"
+    },
+    {
+      "PurchaseOrder": "4500001235",
+      "PurchaseOrderItem": "00010",
+      "Plant": "1010",
+      "Material": "10000089",
+      "OrderQuantity": 1200.00,
+      "PurchaseOrderQuantityUnit": "M3",
+      "NetPriceAmount": 0.62,
+      "DocumentCurrency": "EUR",
+      "NetPriceQuantity": 1.0,
+      "CreationDate": "20260524"
+    }
+  ]
+}

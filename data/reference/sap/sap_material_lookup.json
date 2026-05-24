@@ -1,0 +1,23 @@
+{
+  "10000145": {
+    "description": "Diesel Fuel (Standard Grade)",
+    "category": "FUEL",
+    "scope": 1,
+    "emission_factor_value": 2.51279,
+    "emission_factor_unit": "kg_co2e_per_L"
+  },
+  "10000203": {
+    "description": "Unleaded Petrol (Regular)",
+    "category": "FUEL",
+    "scope": 1,
+    "emission_factor_value": 2.0844,
+    "emission_factor_unit": "kg_co2e_per_L"
+  },
+  "10000089": {
+    "description": "Natural Gas (Industrial Grade)",
+    "category": "FUEL",
+    "scope": 1,
+    "emission_factor_value": 2.04542,
+    "emission_factor_unit": "kg_co2e_per_M3"
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "metadata": {
+    "purpose": "Static prototype emission factors for sources that do not carry their own factor lookup.",
+    "version": "2026-05-25",
+    "notes": "SAP fuel factors live in sap_material_lookup.json because they are material-code specific. Production should move all factors into an EmissionFactor table with geography, effective dates, and source-version metadata."
+  },
+  "utility_electricity": {
+    "us_grid_average_location_based": {
+      "activity_type": "ELECTRICITY",
+      "scope": 2,
+      "factor_value": 0.3497,
+      "factor_unit": "kg_co2e_per_kWh",
+      "geography": "US",
+      "source": "US EPA eGRID 2023 Summary Data",
+      "source_detail": "EPA eGRID 2023 U.S. total output CO2e rate: 770.884 lb/MWh, converted to 0.3497 kg CO2e per kWh.",
+      "prototype_use": "Default location-based factor for utility_electricity_mock.csv when no utility/grid-region factor is supplied.",
+      "caveat": "This is a U.S. average location-based factor. Production must support eGRID subregion, supplier-specific factors, RECs, and PPAs."
+    }
+  },
+  "business_travel": {
+    "flight_short_haul_economy_with_rf": {
+      "activity_type": "FLIGHT",
+      "scope": 3,
+      "scope3_category": 6,
+      "factor_value": 0.18287,
+      "factor_unit": "kg_co2e_per_passenger_km",
+      "geography": "UK/International proxy",
+      "source": "UK DEFRA/DESNZ 2024 Government GHG Conversion Factors",
+      "source_detail": "Business travel- air > Flights > Short-haul, to/from UK > Economy class > With RF.",
+      "prototype_use": "Default for short-haul economy flights such as EWR-BOS."
+    },
+    "flight_long_haul_economy_with_rf": {
+      "activity_type": "FLIGHT",
+      "scope": 3,
+      "scope3_category": 6,
+      "factor_value": 0.20011,
+      "factor_unit": "kg_co2e_per_passenger_km",
+      "geography": "UK/International proxy",
+      "source": "UK DEFRA/DESNZ 2024 Government GHG Conversion Factors",
+      "source_detail": "Business travel- air > Flights > Long-haul, to/from UK > Economy class > With RF.",
+      "prototype_use": "Economy baseline for long-haul flights."
+    },
+    "flight_long_haul_business_with_rf": {
+      "activity_type": "FLIGHT",
+      "scope": 3,
+      "scope3_category": 6,
+      "factor_value": 0.58028,
+      "factor_unit": "kg_co2e_per_passenger_km",
+      "geography": "UK/International proxy",
+      "source": "UK DEFRA/DESNZ 2024 Government GHG Conversion Factors",
+      "source_detail": "Business travel- air > Flights > Long-haul, to/from UK > Business class > With RF.",
+      "prototype_use": "Default for long-haul business flights such as SFO-LHR."
+    },
+    "hotel_uk_london": {
+      "activity_type": "HOTEL",
+      "scope": 3,
+      "scope3_category": 6,
+      "factor_value": 11.5,
+      "factor_unit": "kg_co2e_per_room_night",
+      "geography": "UK (London)",
+      "source": "UK DEFRA/DESNZ 2024 Government GHG Conversion Factors",
+      "source_detail": "Hotel stay > Hotel stay > UK (London).",
+      "prototype_use": "Default for London hotel room-night segments."
+    },
+    "car_rental_petrol_medium": {
+      "activity_type": "CAR_RENTAL",
+      "scope": 3,
+      "scope3_category": 6,
+      "factor_value": 0.17726,
+      "factor_unit": "kg_co2e_per_km",
+      "geography": "UK proxy",
+      "source": "UK DEFRA/DESNZ 2024 Government GHG Conversion Factors",
+      "source_detail": "Passenger vehicles > Cars (by size) > Medium car > Petrol.",
+      "prototype_use": "Default for intermediate petrol rental cars after applying the 50 km/day distance proxy."
+    },
+    "rail_national": {
+      "activity_type": "RAIL",
+      "scope": 3,
+      "scope3_category": 6,
+      "factor_value": 0.03546,
+      "factor_unit": "kg_co2e_per_passenger_km",
+      "geography": "UK proxy",
+      "source": "UK DEFRA/DESNZ 2024 Government GHG Conversion Factors",
+      "source_detail": "Business travel- land > Rail > National rail.",
+      "prototype_use": "Default rail factor when route-specific rail factors are unavailable."
+    }
+  },
+  "assumptions": {
+    "flight_radiative_forcing": true,
+    "car_rental_distance_proxy_km_per_day": 50,
+    "default_passenger_count": 1,
+    "default_room_count": 1
+  }
+}

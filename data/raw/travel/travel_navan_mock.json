@@ -1,0 +1,77 @@
+{
+  "trips": [
+    {
+      "bookingId": "NAV-88392",
+      "tripName": "Q3 Sales Kickoff - London",
+      "bookingStatus": "TICKETED",
+      "employeeId": "EMP-4092",
+      "amount": 1250.00,
+      "currency": "USD",
+      "segments": [
+        {
+          "type": "FLIGHT",
+          "airlineCode": "BA",
+          "flightNumber": "BA284",
+          "origin": "SFO",
+          "destination": "LHR",
+          "cabinClass": "Business",
+          "departureTime": "2026-08-15T19:30:00Z",
+          "arrivalTime": "2026-08-16T14:00:00Z"
+        },
+        {
+          "type": "HOTEL",
+          "hotelName": "The Hoxton Holborn",
+          "city": "London",
+          "checkInDate": "2026-08-16",
+          "checkOutDate": "2026-08-20",
+          "roomCount": 1
+        },
+        {
+          "type": "CAR_RENTAL",
+          "vendor": "Hertz",
+          "vehicleCategory": "INTERMEDIATE",
+          "fuelType": "PETROL",
+          "pickupLocation": "LHR",
+          "dropoffLocation": "LHR",
+          "pickupDate": "2026-08-16",
+          "dropoffDate": "2026-08-20",
+          "estimatedDistanceKm": null,
+          "amount": 320.00,
+          "currency": "USD"
+        }
+      ]
+    },
+    {
+      "bookingId": "NAV-99120",
+      "tripName": "Client Onboarding - NY",
+      "bookingStatus": "CONFIRMED",
+      "employeeId": "EMP-1022",
+      "amount": 450.50,
+      "currency": "USD",
+      "segments": [
+        {
+          "type": "FLIGHT",
+          "airlineCode": "UA",
+          "flightNumber": "UA14",
+          "origin": "EWR",
+          "destination": "BOS",
+          "cabinClass": "Economy",
+          "departureTime": "2026-09-02T08:00:00Z",
+          "arrivalTime": "2026-09-02T09:15:00Z"
+        },
+        {
+          "type": "RAIL",
+          "operator": "Amtrak",
+          "trainNumber": "AMT-171",
+          "origin": "BOS",
+          "destination": "NYP",
+          "departureTime": "2026-09-04T17:00:00Z",
+          "arrivalTime": "2026-09-04T21:30:00Z",
+          "estimatedDistanceKm": 346,
+          "amount": 89.00,
+          "currency": "USD"
+        }
+      ]
+    }
+  ]
+}
