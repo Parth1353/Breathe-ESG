@@ -3,7 +3,7 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
-from emissions.models import Organization
+from emissions.models import IngestionBatch, Organization
 from emissions.services.ingestion import (
     ingest_sap,
     ingest_travel,
@@ -31,6 +31,11 @@ class Command(BaseCommand):
             action="store_true",
             help="Delete the named demo organization before loading sample data.",
         )
+        parser.add_argument(
+            "--force",
+            action="store_true",
+            help="Load sample data even if the organization already has ingestion batches.",
+        )
 
     def handle(self, *args, **options):
         data_root = Path(options["data_root"]).resolve()
@@ -40,6 +45,15 @@ class Command(BaseCommand):
             Organization.objects.filter(name=org_name).delete()
 
         organization, _ = Organization.objects.get_or_create(name=org_name)
+        if not options["force"] and IngestionBatch.objects.filter(organization=organization).exists():
+            if options["verbosity"] > 0:
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"Sample data already exists for {organization.name}; use --reset or --force to reload."
+                    )
+                )
+            return
+
         load_emission_factors(data_root)
 
         sap_counts = ingest_sap(organization, data_root)

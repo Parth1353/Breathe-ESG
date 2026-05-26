@@ -1,20 +1,35 @@
+import tempfile
+from pathlib import Path
+
+from django.conf import settings
+from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Count, Q
 from django.utils import timezone
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework import status, viewsets
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import AuditEvent, EmissionActivity, IngestionBatch
+from .models import AuditEvent, EmissionActivity, IngestionBatch, Organization
 from .serializers import (
     EmissionActivityDetailSerializer,
     EmissionActivitySerializer,
     IngestionBatchDetailSerializer,
     IngestionBatchSerializer,
 )
+from .services.ingestion import ingest_sap, ingest_travel, ingest_utility, load_emission_factors
 
 
 def request_actor(request):
     return request.user if request.user and request.user.is_authenticated else None
+
+
+def request_organization(request):
+    if request.user and request.user.is_authenticated and hasattr(request.user, "userprofile"):
+        return request.user.userprofile.organization
+    organization, _ = Organization.objects.get_or_create(name="Demo Enterprise Client")
+    return organization
 
 
 def snapshot(activity):
@@ -194,3 +209,61 @@ class IngestionBatchViewSet(viewsets.ReadOnlyModelViewSet):
         if self.action == "retrieve":
             return IngestionBatchDetailSerializer
         return IngestionBatchSerializer
+
+
+class IngestionUploadView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    INGESTERS = {
+        IngestionBatch.SourceType.SAP: ingest_sap,
+        IngestionBatch.SourceType.UTILITY: ingest_utility,
+        IngestionBatch.SourceType.TRAVEL: ingest_travel,
+    }
+
+    def post(self, request):
+        source_type = request.data.get("source_type")
+        uploaded_file = request.FILES.get("file")
+        if source_type not in self.INGESTERS:
+            return Response(
+                {"detail": "source_type must be one of SAP, UTILITY, or TRAVEL."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not isinstance(uploaded_file, UploadedFile):
+            return Response(
+                {"detail": "Upload a source file using the 'file' field."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        suffix = Path(uploaded_file.name).suffix
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=True) as temporary:
+            for chunk in uploaded_file.chunks():
+                temporary.write(chunk)
+            temporary.flush()
+            try:
+                organization = request_organization(request)
+                load_emission_factors(settings.PROJECT_ROOT / "data")
+                counts = self.INGESTERS[source_type](
+                    organization,
+                    settings.PROJECT_ROOT / "data",
+                    uploaded_by=request_actor(request),
+                    source_path=temporary.name,
+                    original_filename=uploaded_file.name,
+                )
+            except Exception as exc:
+                return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        batch = (
+            IngestionBatch.objects.filter(organization=organization, source_type=source_type)
+            .order_by("-ingested_at")
+            .first()
+        )
+        return Response(
+            {
+                "batch": IngestionBatchSerializer(batch).data if batch else None,
+                "raw_records": counts.raw_records,
+                "activities": counts.activities,
+                "warnings": counts.warnings,
+                "failed": counts.failed,
+            },
+            status=status.HTTP_201_CREATED,
+        )

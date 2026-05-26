@@ -2,22 +2,28 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowDownUp,
+  BarChart3,
   Building2,
   Car,
   CheckCircle2,
   ClipboardCheck,
   Database,
+  Download,
   Factory,
   FileCheck2,
   Flag,
   Hotel,
   Lock,
+  Moon,
   Plane,
   RefreshCcw,
+  RotateCcw,
   Save,
   Search,
   ShieldCheck,
+  Sun,
   TrainFront,
+  UploadCloud,
   XCircle,
   Zap,
 } from 'lucide-react';
@@ -27,12 +33,21 @@ import {
   getBatches,
   patchActivity,
   reviewActivity,
+  uploadIngestion,
 } from './api';
 
 const SOURCE_OPTIONS = ['ALL', 'SAP', 'UTILITY', 'TRAVEL'];
 const STATUS_OPTIONS = ['ALL', 'pending_review', 'approved', 'rejected', 'locked'];
 const CONFIDENCE_OPTIONS = ['ALL', 'high', 'medium', 'low'];
 const SCOPE_OPTIONS = ['ALL', '1', '2', '3'];
+const DEFAULT_FILTERS = {
+  source_type: 'ALL',
+  status: 'ALL',
+  confidence: 'ALL',
+  scope: 'ALL',
+  suspiciousOnly: false,
+  query: '',
+};
 
 const sourceMeta = {
   SAP: { label: 'SAP', icon: Factory, tone: 'sap' },
@@ -93,19 +108,27 @@ function sourceLabel(source) {
   return sourceMeta[source]?.label || source;
 }
 
+function normalizeSortValue(activity, key) {
+  if (['co2e_kg', 'normalized_quantity', 'raw_quantity', 'scope'].includes(key)) {
+    return Number(activity[key] || 0);
+  }
+  return (activity[key] || '').toString().toLowerCase();
+}
+
+function escapeCsv(value) {
+  const stringValue = value === null || value === undefined ? '' : String(value);
+  return `"${stringValue.replaceAll('"', '""')}"`;
+}
+
 function App() {
   const [batches, setBatches] = useState([]);
   const [activities, setActivities] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [selected, setSelected] = useState(null);
-  const [filters, setFilters] = useState({
-    source_type: 'ALL',
-    status: 'ALL',
-    confidence: 'ALL',
-    scope: 'ALL',
-    suspiciousOnly: false,
-    query: '',
-  });
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [sortConfig, setSortConfig] = useState({ key: 'co2e_kg', direction: 'desc' });
+  const [theme, setTheme] = useState(() => localStorage.getItem('breathe-theme') || 'light');
+  const [uploadForm, setUploadForm] = useState({ source_type: 'SAP', file: null });
   const [detailTab, setDetailTab] = useState('details');
   const [editForm, setEditForm] = useState({
     normalized_quantity: '',
@@ -115,8 +138,15 @@ function App() {
     reason: '',
   });
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    localStorage.setItem('breathe-theme', theme);
+  }, [theme]);
 
   async function loadData(preferredId = selectedId) {
     setError('');
@@ -182,7 +212,7 @@ function App() {
 
   const visibleActivities = useMemo(() => {
     const query = filters.query.trim().toLowerCase();
-    return activities.filter((activity) => {
+    const filtered = activities.filter((activity) => {
       if (filters.suspiciousOnly && !hasFlags(activity)) return false;
       if (!query) return true;
       const haystack = [
@@ -197,7 +227,14 @@ function App() {
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [activities, filters.query, filters.suspiciousOnly]);
+    return [...filtered].sort((a, b) => {
+      const aValue = normalizeSortValue(a, sortConfig.key);
+      const bValue = normalizeSortValue(b, sortConfig.key);
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [activities, filters.query, filters.suspiciousOnly, sortConfig]);
 
   useEffect(() => {
     if (loading) return;
@@ -213,20 +250,42 @@ function App() {
 
   const summary = useMemo(() => {
     const totalCo2e = activities.reduce((sum, activity) => sum + Number(activity.co2e_kg || 0), 0);
+    const visibleCo2e = visibleActivities.reduce((sum, activity) => sum + Number(activity.co2e_kg || 0), 0);
     const sourceCount = new Set(batches.map((batch) => batch.source_type)).size;
     const scopeCount = new Set(activities.map((activity) => activity.scope)).size;
+    const reviewed = activities.filter((activity) => ['approved', 'locked'].includes(activity.status)).length;
+    const sourceBreakdown = SOURCE_OPTIONS.filter((source) => source !== 'ALL').map((source) => {
+      const sourceRows = activities.filter((activity) => activity.source_type === source);
+      const co2e = sourceRows.reduce((sum, activity) => sum + Number(activity.co2e_kg || 0), 0);
+      return { source, rows: sourceRows.length, co2e };
+    });
+    const scopeBreakdown = ['1', '2', '3'].map((scope) => {
+      const scopeRows = activities.filter((activity) => String(activity.scope) === scope);
+      const co2e = scopeRows.reduce((sum, activity) => sum + Number(activity.co2e_kg || 0), 0);
+      return { scope, rows: scopeRows.length, co2e };
+    });
+    const attentionRows = activities.filter(
+      (activity) => activity.status === 'pending_review' && (hasFlags(activity) || activity.confidence === 'low'),
+    );
+    const highestEmitter = [...activities].sort((a, b) => Number(b.co2e_kg || 0) - Number(a.co2e_kg || 0))[0];
     return {
       totalRows: activities.length,
       visibleRows: visibleActivities.length,
       totalCo2e,
+      visibleCo2e,
       pending: activities.filter((activity) => activity.status === 'pending_review').length,
       approved: activities.filter((activity) => activity.status === 'approved').length,
       locked: activities.filter((activity) => activity.status === 'locked').length,
       suspicious: activities.filter(hasFlags).length,
       failed: batches.reduce((sum, batch) => sum + Number(batch.failed_record_count || 0), 0),
-      reviewed: activities.filter((activity) => ['approved', 'locked'].includes(activity.status)).length,
+      reviewed,
+      reviewRate: activities.length ? Math.round((reviewed / activities.length) * 100) : 0,
       sourceCount,
       scopeCount: sourceCount === 3 ? 3 : scopeCount,
+      sourceBreakdown,
+      scopeBreakdown,
+      attentionRows,
+      highestEmitter,
     };
   }, [activities, visibleActivities, batches]);
 
@@ -269,8 +328,70 @@ function App() {
     }
   }
 
+  function updateSort(key) {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  }
+
+  function resetFilters() {
+    setFilters(DEFAULT_FILTERS);
+  }
+
+  function exportVisibleRows() {
+    const columns = [
+      ['source_type', 'Source'],
+      ['activity_type', 'Activity'],
+      ['scope', 'Scope'],
+      ['activity_start_date', 'Start date'],
+      ['raw_quantity', 'Raw quantity'],
+      ['raw_unit', 'Raw unit'],
+      ['normalized_quantity', 'Normalized quantity'],
+      ['normalized_unit', 'Normalized unit'],
+      ['co2e_kg', 'CO2e kg'],
+      ['confidence', 'Confidence'],
+      ['status', 'Status'],
+      ['batch_filename', 'Batch'],
+    ];
+    const rows = [
+      columns.map(([, label]) => escapeCsv(label)).join(','),
+      ...visibleActivities.map((activity) =>
+        columns.map(([key]) => escapeCsv(activity[key])).join(','),
+      ),
+    ];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'breathe-esg-visible-activities.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function submitUpload(event) {
+    event.preventDefault();
+    if (!uploadForm.file) {
+      setError('Choose a SAP JSON, utility CSV, or travel JSON file before uploading.');
+      return;
+    }
+    setUploading(true);
+    setError('');
+    try {
+      await uploadIngestion(uploadForm.source_type, uploadForm.file);
+      setUploadForm((prev) => ({ ...prev, file: null }));
+      event.currentTarget.reset();
+      await loadData();
+    } catch (uploadError) {
+      setError(uploadError.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const selectedLocked = selected?.status === 'locked' || Boolean(selected?.locked_at);
   const selectedApproved = selected?.status === 'approved';
+  const filtersActive = JSON.stringify(filters) !== JSON.stringify(DEFAULT_FILTERS);
 
   return (
     <main className="app-shell">
@@ -290,6 +411,15 @@ function App() {
             <Building2 size={16} />
             Demo Enterprise Client
           </span>
+          <button
+            className="icon-button"
+            type="button"
+            onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <button className="icon-button" type="button" onClick={() => loadData()} title="Refresh data">
             <RefreshCcw size={18} />
           </button>
@@ -313,6 +443,56 @@ function App() {
         <Metric label="Locked" value={summary.locked} icon={Lock} tone="good" />
       </section>
 
+      <section className="insights-strip" aria-label="Dashboard insights">
+        <div className="insight-panel progress-panel">
+          <div className="insight-heading">
+            <div>
+              <p className="section-kicker">Review progress</p>
+              <h2>{summary.reviewRate}% complete</h2>
+            </div>
+            <ClipboardCheck size={20} />
+          </div>
+          <div className="progress-track" aria-label={`${summary.reviewRate}% reviewed`}>
+            <span style={{ width: `${summary.reviewRate}%` }} />
+          </div>
+          <div className="insight-meta">
+            <span>{summary.reviewed} reviewed</span>
+            <span>{summary.pending} pending</span>
+          </div>
+        </div>
+
+        <div className="insight-panel">
+          <div className="insight-heading">
+            <div>
+              <p className="section-kicker">Source mix</p>
+              <h2>{formatNumber(summary.visibleCo2e, 1)} kg visible</h2>
+            </div>
+            <BarChart3 size={20} />
+          </div>
+          <BreakdownBars rows={summary.sourceBreakdown} total={summary.totalCo2e} />
+        </div>
+
+        <div className="insight-panel attention-panel">
+          <div className="insight-heading">
+            <div>
+              <p className="section-kicker">Attention</p>
+              <h2>{summary.attentionRows.length} priority rows</h2>
+            </div>
+            <Flag size={20} />
+          </div>
+          <p>
+            Highest emitter: <strong>{summary.highestEmitter ? titleize(summary.highestEmitter.activity_type) : '—'}</strong>
+          </p>
+          <div className="scope-chips">
+            {summary.scopeBreakdown.map((item) => (
+              <span key={item.scope}>
+                S{item.scope} <strong>{formatNumber(item.co2e, 0)}</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="workspace-grid">
         <aside className="side-panel" aria-label="Import batches">
           <div className="panel-heading">
@@ -322,6 +502,33 @@ function App() {
             </div>
             <FileCheck2 size={20} />
           </div>
+          <form className="upload-card" onSubmit={submitUpload}>
+            <div className="upload-fields">
+              <label>
+                <span>Source</span>
+                <select
+                  value={uploadForm.source_type}
+                  onChange={(event) => setUploadForm((prev) => ({ ...prev, source_type: event.target.value }))}
+                >
+                  <option value="SAP">SAP JSON</option>
+                  <option value="UTILITY">Utility CSV</option>
+                  <option value="TRAVEL">Travel JSON</option>
+                </select>
+              </label>
+              <label>
+                <span>File</span>
+                <input
+                  type="file"
+                  accept=".csv,.json,application/json,text/csv"
+                  onChange={(event) => setUploadForm((prev) => ({ ...prev, file: event.target.files?.[0] || null }))}
+                />
+              </label>
+            </div>
+            <button className="upload-button" type="submit" disabled={uploading}>
+              <UploadCloud size={16} />
+              {uploading ? 'Uploading' : 'Upload source'}
+            </button>
+          </form>
           <div className="batch-list">
             {batches.map((batch) => (
               <BatchRow key={batch.id} batch={batch} />
@@ -370,6 +577,15 @@ function App() {
               <Flag size={15} />
               Flagged
             </button>
+            <button
+              type="button"
+              className="toggle-button"
+              disabled={!filtersActive}
+              onClick={resetFilters}
+            >
+              <RotateCcw size={15} />
+              Reset
+            </button>
           </div>
 
           <div className="table-head">
@@ -384,12 +600,23 @@ function App() {
               onChange={(value) => setFilters((prev) => ({ ...prev, confidence: value }))}
               formatter={(value) => (value === 'ALL' ? 'All confidence' : titleize(value))}
             />
+            <button
+              type="button"
+              className="export-button"
+              disabled={!visibleActivities.length}
+              onClick={exportVisibleRows}
+            >
+              <Download size={15} />
+              Export CSV
+            </button>
           </div>
 
           <ActivityTable
             activities={visibleActivities}
             selectedId={selectedId}
             loading={loading}
+            sortConfig={sortConfig}
+            onSort={updateSort}
             onSelect={selectActivity}
           />
         </section>
@@ -568,6 +795,23 @@ function Segmented({ label, options, value, onChange, formatter }) {
   );
 }
 
+function BreakdownBars({ rows, total }) {
+  const safeTotal = total || 1;
+  return (
+    <div className="breakdown-bars">
+      {rows.map((row) => (
+        <div className="breakdown-row" key={row.source}>
+          <span>{sourceLabel(row.source)}</span>
+          <div className="breakdown-track">
+            <i className={sourceMeta[row.source]?.tone || ''} style={{ width: `${Math.max((row.co2e / safeTotal) * 100, row.rows ? 5 : 0)}%` }} />
+          </div>
+          <strong>{formatNumber(row.co2e, 0)}</strong>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BatchRow({ batch }) {
   const MetaIcon = sourceMeta[batch.source_type]?.icon || Database;
   const warnings = Number(batch.warning_record_count || 0);
@@ -593,7 +837,7 @@ function BatchRow({ batch }) {
   );
 }
 
-function ActivityTable({ activities, selectedId, loading, onSelect }) {
+function ActivityTable({ activities, selectedId, loading, sortConfig, onSort, onSelect }) {
   if (loading) {
     return (
       <div className="table-state">
@@ -617,14 +861,14 @@ function ActivityTable({ activities, selectedId, loading, onSelect }) {
       <table className="activity-table">
         <thead>
           <tr>
-            <th>Source</th>
-            <th>Activity</th>
-            <th>Period</th>
+            <SortableTh label="Source" sortKey="source_type" sortConfig={sortConfig} onSort={onSort} />
+            <SortableTh label="Activity" sortKey="activity_type" sortConfig={sortConfig} onSort={onSort} />
+            <SortableTh label="Period" sortKey="activity_start_date" sortConfig={sortConfig} onSort={onSort} />
             <th>Raw</th>
             <th>Normalized</th>
-            <th>CO2e kg</th>
+            <SortableTh label="CO2e kg" sortKey="co2e_kg" sortConfig={sortConfig} onSort={onSort} />
             <th>Flags</th>
-            <th>Status</th>
+            <SortableTh label="Status" sortKey="status" sortConfig={sortConfig} onSort={onSort} />
           </tr>
         </thead>
         <tbody>
@@ -666,6 +910,21 @@ function ActivityTable({ activities, selectedId, loading, onSelect }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function SortableTh({ label, sortKey, sortConfig, onSort }) {
+  const active = sortConfig.key === sortKey;
+  return (
+    <th>
+      <button type="button" className={`sort-button ${active ? 'active' : ''}`} onClick={() => onSort(sortKey)}>
+        {label}
+        <ArrowDownUp size={13} />
+        <span className="sr-only">
+          {active ? `Sorted ${sortConfig.direction}` : 'Sort column'}
+        </span>
+      </button>
+    </th>
   );
 }
 

@@ -36,6 +36,16 @@ export function getActivity(id) {
   return request(`/api/activities/${id}/`);
 }
 
+export function uploadIngestion(sourceType, file) {
+  const formData = new FormData();
+  formData.set('source_type', sourceType);
+  formData.set('file', file);
+  return request('/api/ingestions/', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
 export function patchActivity(id, payload) {
   return request(`/api/activities/${id}/`, {
     method: 'PATCH',

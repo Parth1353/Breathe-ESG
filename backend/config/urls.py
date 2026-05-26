@@ -15,9 +15,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
+
+from .views import spa_index
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('emissions.urls')),
+    path('', spa_index, name='spa-index'),
+    re_path(r'^(?!api/|admin/|assets/).*$', spa_index, name='spa-fallback'),
 ]

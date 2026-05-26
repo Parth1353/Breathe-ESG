@@ -1,6 +1,9 @@
 from decimal import Decimal
+from pathlib import Path
 
+from django.conf import settings
 from django.core.management import call_command
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -90,5 +93,27 @@ class ActivityApiTests(TestCase):
         self.assertEqual(len(response.data), 3)
         total_activities = sum(batch["activity_count"] for batch in response.data)
         self.assertEqual(total_activities, 12)
+
+    def test_upload_endpoint_ingests_source_file(self):
+        Organization.objects.filter(name="Demo Enterprise Client").delete()
+        source_path = settings.PROJECT_ROOT / "data/raw/utility/utility_electricity_mock.csv"
+        upload = SimpleUploadedFile(
+            "utility_electricity_mock.csv",
+            Path(source_path).read_bytes(),
+            content_type="text/csv",
+        )
+
+        response = self.client.post(
+            "/api/ingestions/",
+            {"source_type": "UTILITY", "file": upload},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["activities"], 4)
+        self.assertEqual(
+            EmissionActivity.objects.filter(source_type=EmissionActivity.SourceType.UTILITY).count(),
+            4,
+        )
 
 # Create your tests here.

@@ -87,11 +87,11 @@ def great_circle_km(origin, destination):
     return Decimal(str(6371.0088 * c))
 
 
-def create_batch(organization, source_type, path, uploaded_by=None):
+def create_batch(organization, source_type, path, uploaded_by=None, original_filename=None):
     return IngestionBatch.objects.create(
         organization=organization,
         source_type=source_type,
-        original_filename=Path(path).name,
+        original_filename=original_filename or Path(path).name,
         file_hash=file_hash(path),
         uploaded_by=uploaded_by,
         status=IngestionBatch.Status.PROCESSING,
@@ -194,13 +194,13 @@ def complete_batch(batch, counts):
 
 
 @transaction.atomic
-def ingest_sap(organization: Organization, data_root, uploaded_by=None):
+def ingest_sap(organization: Organization, data_root, uploaded_by=None, source_path=None, original_filename=None):
     data_root = Path(data_root)
-    source_path = data_root / "raw/sap/sap_procurement_mock.json"
+    source_path = Path(source_path) if source_path else data_root / "raw/sap/sap_procurement_mock.json"
     material_lookup = json.loads((data_root / "reference/sap/sap_material_lookup.json").read_text())
     plant_lookup = json.loads((data_root / "reference/sap/sap_plant_lookup.json").read_text())
     payload = json.loads(source_path.read_text())
-    batch = create_batch(organization, IngestionBatch.SourceType.SAP, source_path, uploaded_by)
+    batch = create_batch(organization, IngestionBatch.SourceType.SAP, source_path, uploaded_by, original_filename)
     counts = IngestionCounts()
 
     for index, item in enumerate(payload.get("value", []), start=1):
@@ -288,10 +288,10 @@ def ingest_sap(organization: Organization, data_root, uploaded_by=None):
 
 
 @transaction.atomic
-def ingest_utility(organization: Organization, data_root, uploaded_by=None):
+def ingest_utility(organization: Organization, data_root, uploaded_by=None, source_path=None, original_filename=None):
     data_root = Path(data_root)
-    source_path = data_root / "raw/utility/utility_electricity_mock.csv"
-    batch = create_batch(organization, IngestionBatch.SourceType.UTILITY, source_path, uploaded_by)
+    source_path = Path(source_path) if source_path else data_root / "raw/utility/utility_electricity_mock.csv"
+    batch = create_batch(organization, IngestionBatch.SourceType.UTILITY, source_path, uploaded_by, original_filename)
     factor = factor_by_key("us_grid_average_location_based")
     counts = IngestionCounts()
     periods_by_meter = {}
@@ -379,11 +379,11 @@ def ingest_utility(organization: Organization, data_root, uploaded_by=None):
 
 
 @transaction.atomic
-def ingest_travel(organization: Organization, data_root, uploaded_by=None):
+def ingest_travel(organization: Organization, data_root, uploaded_by=None, source_path=None, original_filename=None):
     data_root = Path(data_root)
-    source_path = data_root / "raw/travel/travel_navan_mock.json"
+    source_path = Path(source_path) if source_path else data_root / "raw/travel/travel_navan_mock.json"
     payload = json.loads(source_path.read_text())
-    batch = create_batch(organization, IngestionBatch.SourceType.TRAVEL, source_path, uploaded_by)
+    batch = create_batch(organization, IngestionBatch.SourceType.TRAVEL, source_path, uploaded_by, original_filename)
     counts = IngestionCounts()
     segment_number = 0
 

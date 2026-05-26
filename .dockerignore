@@ -1,0 +1,8 @@
+.git
+.DS_Store
+backend/db.sqlite3
+backend/staticfiles
+frontend/dist
+frontend/node_modules
+**/__pycache__
+**/*.pyc
