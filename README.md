@@ -20,10 +20,6 @@ Built for the **Breathe ESG Tech Intern Assignment**.
 - [Reviewer Access](#reviewer-access)
 
 ---
-
-## Live Demo
-
-> **Deployed URL:** _[To be added after Render deployment]_
 >
 > No login required — authentication is intentionally disabled so reviewers can access the dashboard directly.
 
@@ -253,14 +249,4 @@ Accepted upload formats:
 
 ---
 
-## Reviewer Access
 
-Repository should be shared with:
-- saurav@breatheesg.com
-- rahul@breatheesg.com
-- shivang@breatheesg.com
-
-Submission email should include:
-1. GitHub repository link
-2. Deployed app URL
-3. Login credentials (none required — open access for demo)
