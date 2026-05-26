@@ -1,12 +1,33 @@
+# Python
 __pycache__/
 *.py[cod]
-.DS_Store
+*.pyo
+*.egg-info/
+*.egg
 
+# Django
 backend/db.sqlite3
 backend/staticfiles/
 backend/.env
 
-frontend/*preview.png
+# Node / Frontend
 node_modules/
 dist/
 build/
+frontend/*preview.png
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.production
